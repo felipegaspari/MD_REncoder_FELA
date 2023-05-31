@@ -132,8 +132,8 @@ clicks by the number of periods in a second.
 speed = ClickCount * (1000 / period)
 
 */
-#ifndef _MD_RENCODER_H
-#define _MD_RENCODER_H
+#ifndef _MD_RENCODER_FELA_H
+#define _MD_RENCODER_FELA_H
 
 #include <Arduino.h>
 /**
@@ -166,7 +166,7 @@ speed = ClickCount * (1000 / period)
  a whole fraction of 1000 (ie 100, 200, 500, 1000). Longer periods provide some hysteresis 
  which is useful when the encoder is being turned by hand.
  */
-#define DEFAULT_PERIOD    500
+#define DEFAULT_PERIOD    60
 
 
 //  Direction values returned by read() method 
@@ -219,7 +219,7 @@ class MD_REncoder
    *
    * \return One of the DIR_NONE, DIR_CW or DIR_CCW.
    */
-    uint8_t read(void);
+    uint8_t read(uint8_t valueA, uint8_t valueB);
 
 #if ENABLE_SPEED
   /** 

@@ -27,7 +27,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  * \file
  * \brief Implements core MD_REncoder class methods
  */
-#include <MD_REncoder.h>
+#include <MD_REncoder_fela.h>
 
 /*
  * The below state table has, for each state (row), the new state
@@ -87,15 +87,15 @@ _pinA (pinA), _pinB (pinB), _state(R_START)
 
 void MD_REncoder::begin(void)
 {
-  pinMode(_pinA, (ENABLE_PULLUPS ? INPUT_PULLUP : INPUT));
-  pinMode(_pinB, (ENABLE_PULLUPS ? INPUT_PULLUP : INPUT));
+//  pinMode(_pinA, (ENABLE_PULLUPS ? INPUT_PULLUP : INPUT));
+//  pinMode(_pinB, (ENABLE_PULLUPS ? INPUT_PULLUP : INPUT));
 }
 
-uint8_t MD_REncoder::read(void) 
+uint8_t MD_REncoder::read(uint8_t valueA, uint8_t valueB) 
 // Grab state of input pins, determine new state from the pins 
 // and state table, and return the emit bits (ie the generated event).
 {
-  uint8_t pinstate = (digitalRead(_pinB) << 1) | digitalRead(_pinA);
+  uint8_t pinstate = (valueA << 1) | (valueB);
   
   _state = ttable[_state & 0xf][pinstate]; 
   
@@ -104,7 +104,7 @@ uint8_t MD_REncoder::read(void)
   if (_state & 0x30) _count++;
   if (millis() - _timeLast >= _period)
   {
-    _spd = _count * (1000/_period);
+    _spd = _count * (400/_period);
     _timeLast = millis();
     _count = 0;
   }
