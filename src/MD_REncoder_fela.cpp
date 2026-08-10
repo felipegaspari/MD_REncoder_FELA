@@ -27,7 +27,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  * \file
  * \brief Implements core MD_REncoder class methods
  */
-#include <MD_REncoder_fela.h>
+#include "MD_REncoder_fela.h"
 
 /*
  * The below state table has, for each state (row), the new state
