@@ -91,7 +91,7 @@ void MD_REncoder::begin(void)
 //  pinMode(_pinB, (ENABLE_PULLUPS ? INPUT_PULLUP : INPUT));
 }
 
-uint8_t MD_REncoder::read(uint8_t valueA, uint8_t valueB) 
+uint8_t MD_RENCODER_FELA_HOT(MD_REncoder::read)(uint8_t valueA, uint8_t valueB) 
 // Grab A/B bits, determine new state from the pins
 // and state table, and return the emit bits (ie the generated event).
 {

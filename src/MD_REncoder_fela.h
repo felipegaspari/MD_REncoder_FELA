@@ -32,6 +32,9 @@ Topics
 
 Revision History
 ----------------
+Aug 2026 - version 1.1.1 (FELA)
+- MD_RENCODER_FELA_SRAM_HOT pins read() in SRAM (__not_in_flash_func)
+
 Aug 2026 - version 1.1.0 (FELA)
 - read(valueA, valueB) takes mux (or other) A/B bits instead of digitalRead()
 - begin() does not call pinMode (caller / mux owns GPIO)
@@ -148,6 +151,29 @@ acceleration more often; 400 (instead of 1000) keeps the gain usable on a synth 
 #define _MD_RENCODER_FELA_H
 
 #include <Arduino.h>
+
+// 1 = RP2040 __not_in_flash_func on read() (define before include).
+// 0 = portable / flash (library default). No-op if the attribute is missing.
+#ifndef MD_RENCODER_FELA_SRAM_HOT
+#define MD_RENCODER_FELA_SRAM_HOT 0
+#endif
+#if MD_RENCODER_FELA_SRAM_HOT
+#ifndef __not_in_flash_func
+#define __not_in_flash_func(fn) fn
+#endif
+#define MD_RENCODER_FELA_HOT(fn) __not_in_flash_func(fn)
+#else
+#define MD_RENCODER_FELA_HOT(fn) fn
+#endif
+#ifndef MD_RENCODER_FELA_CONFIG_REPORTED
+#define MD_RENCODER_FELA_CONFIG_REPORTED
+#if MD_RENCODER_FELA_SRAM_HOT
+#pragma message("MD_REncoder_fela: SRAM hot path ON (MD_RENCODER_FELA_SRAM_HOT=1) — read() .time_critical")
+#else
+#pragma message("MD_REncoder_fela: SRAM hot path OFF (MD_RENCODER_FELA_SRAM_HOT=0) — library default")
+#endif
+#endif
+
 /**
  * \file
  * \brief Main header file for the MD_REncoder_fela library
