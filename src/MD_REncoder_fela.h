@@ -10,6 +10,9 @@ and implements additional features for encoder rotation speed.
 Original library copyright 2011 Ben Buxton. Licensed under the GNU GPL Version 3.
 Contact: bb@cactii.net
 
+FELA fork (MD_REncoder_fela) feeds A/B from a mux snapshot via read(valueA, valueB)
+instead of digitalRead(), and uses a shorter speed window for synth-panel acceleration.
+
 Features
 --------
 - Debounce handling with support for high rotation speeds
@@ -18,6 +21,7 @@ Features
 - Interrupt based or polling in loop()
 - Counts full-steps (default) or half-steps
 - Calculates speed of rotation
+- Mux-fed A/B bits (no GPIO read inside the decoder)
 
 If you like and use this library please consider making a small donation using [PayPal](https://paypal.me/MajicDesigns/4USD)
 
@@ -28,6 +32,11 @@ Topics
 
 Revision History
 ----------------
+Aug 2026 - version 1.1.0 (FELA)
+- read(valueA, valueB) takes mux (or other) A/B bits instead of digitalRead()
+- begin() does not call pinMode (caller / mux owns GPIO)
+- DEFAULT_PERIOD 60 ms; speed = ClickCount * (400 / period)
+
 Jan 2020 - version 1.0.1
 - Adjusted order of class initializers to fix errors in some compilers
 
@@ -94,7 +103,7 @@ direction or the other.
 
 It's also possible to use 'half-step' mode. This just emits an event at both the 
 0-0 and 1-1 positions. This might be useful for some encoders where you want to 
-detect all positions. In MD_REncoder.h set ENABLE_HALF_STEP to 1 to enable 
+detect all positions. In MD_REncoder_fela.h set ENABLE_HALF_STEP to 1 to enable 
 half-step mode.
 
 If an invalid state happens (for example we go from '0-1' straight to '1-0'), the 
@@ -118,7 +127,8 @@ ENABLE_HALF_STEP is 0 by default. Set this to 1 to emit codes when the rotary en
 is at 11 as well as 00. The default is to emit codes only at 00.
 
 ENABLE_PULLUPS is set to 1 by default. Set this 0 if internal pullup resistors on the
-input pins are not required.
+input pins are not required. FELA begin() does not apply pinMode; pullups are only
+relevant if the caller configures GPIO itself.
 
 ENABLE_SPEED is set to 1 by default. Set this to 0 to disable the code and storage used to 
 calculate the speed of the encoder rotation.
@@ -126,19 +136,21 @@ calculate the speed of the encoder rotation.
 Speed Calculation
 -----------------
 The number of clicks is accumulated during the period defined by setPeriod(). Once the time 
-has expired the velocity is calculated in clicks per second by multiplying the number of 
-clicks by the number of periods in a second.
+has expired the velocity is calculated as a panel acceleration gain (not SI clicks/s):
 
-speed = ClickCount * (1000 / period)
+speed = ClickCount * (400 / period)
+
+With DEFAULT_PERIOD 60 this is ClickCount * 6 (integer). Shorter periods update
+acceleration more often; 400 (instead of 1000) keeps the gain usable on a synth panel.
 
 */
-#ifndef _MD_RENCODER_H
-#define _MD_RENCODER_H
+#ifndef _MD_RENCODER_FELA_H
+#define _MD_RENCODER_FELA_H
 
 #include <Arduino.h>
 /**
  * \file
- * \brief Main header file for the MD_Parola library
+ * \brief Main header file for the MD_REncoder_fela library
  */
 
 // Library options
@@ -162,11 +174,10 @@ speed = ClickCount * (1000 / period)
 #define ENABLE_SPEED      1
 
 /**
- Set the default sampling period for measuring the speed, in milliseconds. This works best as 
- a whole fraction of 1000 (ie 100, 200, 500, 1000). Longer periods provide some hysteresis 
- which is useful when the encoder is being turned by hand.
+ Set the default sampling period for measuring the speed, in milliseconds.
+ FELA uses 60 ms so panel acceleration tracks the hand (~16 updates/s).
  */
-#define DEFAULT_PERIOD    500
+#define DEFAULT_PERIOD    60
 
 
 //  Direction values returned by read() method 
@@ -177,12 +188,12 @@ speed = ClickCount * (1000 / period)
 #define DIR_NONE  0x00
 /**
  \def DIR_CW
- read() return value - Clockwise step/movement
+  read() return value - Clockwise step/movement
  */
 #define DIR_CW    0x10
 /**
  \def DIR_CCW
- read() return value - Counter-clockwise step/movement
+  read() return value - Counter-clockwise step/movement
  */
 #define DIR_CCW   0x20  
 
@@ -195,7 +206,8 @@ class MD_REncoder
   /** 
    * Class Constructor.
    *
-   * Instantiate a new instance of the class. 
+   * Instantiate a new instance of the class. Pin numbers may be dummy when A/B
+   * come from a mux (FELA Input uses 50, 50).
    *
    * \param pinA  the pin number for the encoder A output
    * \param pinB  the pin number for the encoder B output
@@ -205,8 +217,8 @@ class MD_REncoder
   /** 
    * Initialize the object.
    *
-   * Initialize the object data. This will be called to initialize 
-   * new data for the class that cannot be done during the object creation.
+   * Initialize the object data. FELA does not call pinMode(); the caller or
+   * mux driver owns GPIO configuration.
    */
     void begin(void);
 
@@ -214,22 +226,21 @@ class MD_REncoder
    * Read the direction of rotation.
    *
    * Read the direction of rotation inferred from the previous state of the 
-   * encoder the current state of the inputs. This method should be called 
-   * on a frequent regular basis to ensure smooth encoder inputs.
+   * encoder and the current A/B bits. Pass mux (or digitalRead) snapshots;
+   * this method does not sample GPIO itself. Call frequently for smooth input.
    *
+   * \param valueA encoder A bit (0 or 1)
+   * \param valueB encoder B bit (0 or 1)
    * \return One of the DIR_NONE, DIR_CW or DIR_CCW.
    */
-    uint8_t read(void);
+    uint8_t read(uint8_t valueA, uint8_t valueB);
 
 #if ENABLE_SPEED
   /** 
    * Set the sampling period for the speed detection.
    *
    * Set the speed sampling interval in milliseconds. The period 
-   * must be greater than 0 and less than 1000. This works best as
-   * a whole fraction of 1000 (ie 100, 200, 500, 1000). Longer 
-   * periods provide some hysteresis which is useful when the 
-   * encoder is being turned by hand.
+   * must be greater than 0 and less than 1000.
    *
    * \param t time in millisecond between 0 and 1000 inclusive.
    */
@@ -238,12 +249,10 @@ class MD_REncoder
   /** 
    * Return the speed of the encoder.
    *
-   * Calculate the speed (steps per second) for the encoder.
-   * The sampling period is set using the setPeriod() method.
-   * If the encoder is used to enter numbers or scan through menus, the speed 
-   * can be used to accelerate the display (eg, skip larger values for each click).
+   * Panel acceleration gain: ClickCount * (400 / period) over the last
+   * sampling window. Use to accelerate parameter steps on fast spins.
    *
-   * \return The speed in clicks per second.
+   * \return Speed gain from the last completed period (not SI clicks/s).
    */
     inline uint16_t speed(void) { return(_spd); };
 #endif
@@ -260,10 +269,9 @@ class MD_REncoder
     // Velocity data
     uint16_t  _period;  // velocity calculation period
     uint16_t  _count;   // running count of encoder clicks
-    uint16_t  _spd;     // last calculated speed (no sign) in clicks/second
+    uint16_t  _spd;     // last calculated speed gain (no sign)
     uint32_t  _timeLast;  // last time read
 #endif
 };
 
 #endif
- 
