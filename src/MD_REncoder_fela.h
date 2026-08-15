@@ -170,7 +170,7 @@ acceleration more often; 400 (instead of 1000) keeps the gain usable on a synth 
 #define ENABLE_HALF_STEP  0
 #define ENABLE_PULLUPS    1
 #define ENABLE_SPEED      1
-#define DEFAULT_PERIOD    60
+#define DEFAULT_PERIOD    40
 
 // Direction values returned by read() method 
 #define DIR_NONE  0x00
