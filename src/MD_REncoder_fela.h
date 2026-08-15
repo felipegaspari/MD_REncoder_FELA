@@ -165,138 +165,50 @@ acceleration more often; 400 (instead of 1000) keeps the gain usable on a synth 
 #else
 #define MD_RENCODER_FELA_HOT(fn) fn
 #endif
-#ifndef MD_RENCODER_FELA_CONFIG_REPORTED
-#define MD_RENCODER_FELA_CONFIG_REPORTED
-#if MD_RENCODER_FELA_SRAM_HOT
-#pragma message("MD_REncoder_fela: SRAM hot path ON (MD_RENCODER_FELA_SRAM_HOT=1) — read() .time_critical")
-#else
-#pragma message("MD_REncoder_fela: SRAM hot path OFF (MD_RENCODER_FELA_SRAM_HOT=0) — library default")
-#endif
-#endif
-
-/**
- * \file
- * \brief Main header file for the MD_REncoder_fela library
- */
 
 // Library options
-/**
- \def ENABLE_HALF_STEP
- Set this to 1 to emit codes when the rotary encoder is at 11 as well as 00. 
- The default is to emit codes only at 00.
- */
 #define ENABLE_HALF_STEP  0
-
-/**
- \def ENABLE_PULLUPS
- Set this 0 if internal pullup resistors on the input pins are not required.
- */
 #define ENABLE_PULLUPS    1
-
-/**
- \def ENABLE_SPEED
- Set this to 0 to disable the code and storage used to calculate the encoder rotation speed.
- */
 #define ENABLE_SPEED      1
-
-/**
- Set the default sampling period for measuring the speed, in milliseconds.
- FELA uses 60 ms so panel acceleration tracks the hand (~16 updates/s).
- */
 #define DEFAULT_PERIOD    60
 
-
-//  Direction values returned by read() method 
-/**
- \def DIR_NONE
-  read() return value - No complete step/movement
- */
+// Direction values returned by read() method 
 #define DIR_NONE  0x00
-/**
- \def DIR_CW
-  read() return value - Clockwise step/movement
- */
 #define DIR_CW    0x10
-/**
- \def DIR_CCW
-  read() return value - Counter-clockwise step/movement
- */
 #define DIR_CCW   0x20  
 
-/**
- * Core object for the MD_REncoder library
- */
 class MD_REncoder
 {
   public:
-  /** 
-   * Class Constructor.
-   *
-   * Instantiate a new instance of the class. Pin numbers may be dummy when A/B
-   * come from a mux (FELA Input uses 50, 50).
-   *
-   * \param pinA  the pin number for the encoder A output
-   * \param pinB  the pin number for the encoder B output
-   */
     MD_REncoder(uint8_t pinA, uint8_t pinB);
-
-  /** 
-   * Initialize the object.
-   *
-   * Initialize the object data. FELA does not call pinMode(); the caller or
-   * mux driver owns GPIO configuration.
-   */
     void begin(void);
 
-  /** 
-   * Read the direction of rotation.
-   *
-   * Read the direction of rotation inferred from the previous state of the 
-   * encoder and the current A/B bits. Pass mux (or digitalRead) snapshots;
-   * this method does not sample GPIO itself. Call frequently for smooth input.
-   *
-   * \param valueA encoder A bit (0 or 1)
-   * \param valueB encoder B bit (0 or 1)
-   * \return One of the DIR_NONE, DIR_CW or DIR_CCW.
-   */
+    // Standard read (emits on every single click)
     uint8_t read(uint8_t valueA, uint8_t valueB);
 
-#if ENABLE_SPEED
-  /** 
-   * Set the sampling period for the speed detection.
-   *
-   * Set the speed sampling interval in milliseconds. The period 
-   * must be greater than 0 and less than 1000.
-   *
-   * \param t time in millisecond between 0 and 1000 inclusive.
-   */
-    inline void setPeriod(uint16_t t) { if ((t != 0) && (t <= 1000)) _period = t; };
+    // Rate-limited read: accumulates steps and emits at most once every intervalMs (default 20ms)
+    // Returns 0 if throttled/idle, or the total signed movement (+1, -1, +3, -5, etc.)
+    int16_t readDelta(uint8_t valueA, uint8_t valueB, uint32_t intervalMs = 20);
 
-  /** 
-   * Return the speed of the encoder.
-   *
-   * Panel acceleration gain: ClickCount * (400 / period) over the last
-   * sampling window. Use to accelerate parameter steps on fast spins.
-   *
-   * \return Speed gain from the last completed period (not SI clicks/s).
-   */
+#if ENABLE_SPEED
+    inline void setPeriod(uint16_t t) { if ((t != 0) && (t <= 1000)) _period = t; };
     inline uint16_t speed(void) { return(_spd); };
 #endif
 
   private:
-    // Hardware data
-    uint8_t _pinA;      // pin A number
-    uint8_t _pinB;      // pin B number
-    
-    // Encoder value
-    uint8_t _state;     // latest state for the encoder
+    uint8_t _pinA;
+    uint8_t _pinB;
+    uint8_t _state;
+
+    // Rate-limiting accumulator
+    int16_t  _delta;
+    uint32_t _lastEmit;
 
 #if ENABLE_SPEED    
-    // Velocity data
-    uint16_t  _period;  // velocity calculation period
-    uint16_t  _count;   // running count of encoder clicks
-    uint16_t  _spd;     // last calculated speed gain (no sign)
-    uint32_t  _timeLast;  // last time read
+    uint16_t  _period;
+    uint16_t  _count;
+    uint16_t  _spd;
+    uint32_t  _timeLast;
 #endif
 };
 
